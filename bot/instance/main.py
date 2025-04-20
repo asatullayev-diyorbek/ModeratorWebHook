@@ -1,0 +1,56 @@
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import (
+    CommandStart,
+    Command,
+    ChatMemberUpdatedFilter,
+    MEMBER,
+    IS_NOT_MEMBER,
+    ADMINISTRATOR,
+    LEFT,
+    KICKED,
+    CREATOR,
+)
+
+from bot.instance.handlers.group_handlers import (
+    handle_start,
+    handle_help,
+    join_member,
+    left_member,
+    all_message,
+    admin_changed, edited_message
+)
+
+from bot.instance.handlers.admin_handler import (
+    handle_guruh,
+    handle_kanal,
+)
+
+webhook_dp = Dispatcher()
+
+webhook_dp.message.register(handle_start, CommandStart())  # /start
+webhook_dp.message.register(handle_help, Command('help')) # /help
+webhook_dp.message.register(handle_guruh, Command('guruh')) # /guruh count - guruhga majburiy odam qo'shish
+webhook_dp.message.register(handle_kanal, Command('kanal')) # /guruh count - guruhga majburiy odam qo'shish
+webhook_dp.message.register(all_message)
+
+webhook_dp.edited_message.register(edited_message)
+
+webhook_dp.chat_member.register(join_member, ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER >> MEMBER))
+webhook_dp.chat_member.register(left_member, ChatMemberUpdatedFilter(member_status_changed=MEMBER >> IS_NOT_MEMBER))
+webhook_dp.chat_member.register(admin_changed, ChatMemberUpdatedFilter(member_status_changed=MEMBER >> ADMINISTRATOR))
+webhook_dp.chat_member.register(admin_changed, ChatMemberUpdatedFilter(member_status_changed=ADMINISTRATOR >> MEMBER))
+webhook_dp.chat_member.register(admin_changed, ChatMemberUpdatedFilter(member_status_changed=ADMINISTRATOR >> LEFT))
+webhook_dp.chat_member.register(admin_changed, ChatMemberUpdatedFilter(member_status_changed=ADMINISTRATOR >> KICKED))
+webhook_dp.chat_member.register(admin_changed, ChatMemberUpdatedFilter(member_status_changed=CREATOR >> ADMINISTRATOR))
+webhook_dp.chat_member.register(admin_changed, ChatMemberUpdatedFilter(member_status_changed=ADMINISTRATOR >> CREATOR))
+
+
+
+async def feed_update(token: str, update: dict):
+
+    try:
+        webhook_book = Bot(token=token)
+        aiogram_update = types.Update(**update)
+        await webhook_dp.feed_update(bot=webhook_book, update=aiogram_update)
+    finally:
+        await webhook_book.session.close()
