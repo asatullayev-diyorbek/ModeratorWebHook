@@ -5,10 +5,78 @@ from bot.tasks import delete_message_later
 
 from bot.models import TgUser, Group, GroupMember, GroupAdmin, GroupMemberInvitedHistory, ChannelMember
 from bot.instance.handlers.keyboards import add_group_inline_markup
-from bot.instance.handlers.group_handlers import delete_message, get_group_admins_from_telegram
+from bot.instance.handlers.group_handlers import delete_message, get_group_admins_from_telegram, get_group_member
 
 
+async def handle_meni(message: Message, bot: Bot):
+    await delete_message(message, bot)
+    is_private = False
 
+    if message.chat.type == "private":
+        msg = await message.answer(
+            text=(
+                "🚫 *Bu buyruq faqat guruhlarda ishlaydi!*\n\n"
+                "👥 Iltimos, bu buyrugʻdan guruhda foydalaning: `/meni`\n"
+                "📌 Guruhda botni administrator qilib, nechta a'zo qo'shganingizni bilib olishingiz mumkin bo'ladi\n"
+                "ℹ️ Misol uchun: `/meni`"
+            ),
+            reply_markup=add_group_inline_markup,
+            parse_mode="Markdown"
+        )
+        is_private = True
+
+
+    chat_id = message.chat.id
+    from_user = message.from_user
+
+    tg_user = await TgUser.get_by_chat_id(message.from_user.id)
+
+    if not tg_user:
+        tg_user = await TgUser.create_tg_user(
+            chat_id=from_user.id,
+            full_name=from_user.full_name,
+            is_private=is_private
+        )
+    elif not tg_user.is_private and is_private:
+        tg_user = await tg_user.update_is_private(is_private=is_private)
+
+    if message.chat.type == 'channel' or is_private:
+        return
+
+    group = await Group.get_by_chat_id(chat_id)
+    if not group:
+        group = await Group.create_group(chat_id=chat_id, title=message.chat.title)
+
+    if not group.is_admin:
+        admins = await get_group_admins_from_telegram(group, message.bot)
+    else:
+        admins = [bot.id]
+
+    if not bot.id in admins:
+        msg = await message.bot.send_message(
+            chat_id=message.chat.id,
+            text="🚫 Bot guruhda admin emas!\n\n"
+                 "Botga quyidagi ruxsatlarni bering:\n"
+                 "✅ Xabarlarni o‘chirish\n"
+                 "✅ Foydalanuvchilarni cheklash (ban qilish)\n"
+                 "✅ Xabarlarni pin qilish\n"
+                 "✅ Xabar yuborish va o‘zgartirish\n\n",
+            parse_mode="Markdown",
+            reply_markup=add_group_inline_markup
+        )
+        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        return
+
+    group_member = await get_group_member(chat_id=group.chat_id, tg_user_id=tg_user.chat_id)
+
+    msg = await message.answer(
+        text=(
+            f"🎉 <a href='tg://user?id={tg_user.chat_id}'>{tg_user.full_name}</a>, ajoyib natija! 👏\n\n"
+            f"🔗 Siz hozirgacha {group_member.invite_count} ta do‘stni guruhga taklif qildingiz! 🎯\n"
+        ),
+        parse_mode='HTML'
+    )
+    delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
 
 
 async def handle_guruh(message: Message, bot: Bot):

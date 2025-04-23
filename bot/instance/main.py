@@ -22,15 +22,16 @@ from bot.instance.handlers.group_handlers import (
 
 from bot.instance.handlers.admin_handler import (
     handle_guruh,
-    handle_kanal,
+    handle_kanal, handle_meni,
 )
 
 webhook_dp = Dispatcher()
 
 webhook_dp.message.register(handle_start, CommandStart())  # /start
 webhook_dp.message.register(handle_help, Command('help')) # /help
-webhook_dp.message.register(handle_guruh, Command('guruh')) # /guruh count - guruhga majburiy odam qo'shish
-webhook_dp.message.register(handle_kanal, Command('kanal')) # /guruh count - guruhga majburiy odam qo'shish
+webhook_dp.message.register(handle_guruh, Command('guruh'))
+webhook_dp.message.register(handle_kanal, Command('kanal'))
+webhook_dp.message.register(handle_meni, Command('meni'))
 webhook_dp.message.register(all_message)
 
 webhook_dp.edited_message.register(edited_message)

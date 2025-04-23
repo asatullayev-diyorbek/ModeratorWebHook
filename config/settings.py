@@ -17,6 +17,7 @@ ALLOWED_HOSTS = ['*']
 BOT_HOST = os.getenv('BOT_HOST')
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 BOT_WEBHOOK_URL = f"{BOT_HOST}/bot/webhook/{BOT_TOKEN.split(':', maxsplit=1)[0]}/updates"
+BOT_USERNAME = os.getenv('BOT_USERNAME')
 
 
 # Application definition

@@ -583,6 +583,9 @@ async def delete_message(message: Message, bot: Bot):
 
     except Exception as e:
         print(f"Xatolik: Bot xabarni o'chira olmadi. Xato: {str(e)}")
+        if "message to delete not found" in e:
+            print(f"⚠️ Xabar topilmadi: chat_id={chat_id}, message_id={message_id}")
+            return
 
         # Telegram API orqali botning admin statusini tekshirish
         try:

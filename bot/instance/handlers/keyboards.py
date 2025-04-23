@@ -1,9 +1,9 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
+from config.settings import BOT_USERNAME
 # Inline tugma yaratish
 add_group_inline_button = InlineKeyboardButton(
     text="➕ Guruhga qo‘shish ➕",
-    url=f"https://t.me/ModeratorBotWebHookBot?startgroup=new"
+    url=f"https://t.me/{BOT_USERNAME}?startgroup=new"
 )
 
 add_group_inline_markup = InlineKeyboardMarkup(inline_keyboard=[[add_group_inline_button]])
