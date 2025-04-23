@@ -11,6 +11,6 @@ def delete_message_later(chat_id, message_id, delay_seconds=25):
             await asyncio.sleep(delay_seconds)
             await bot.delete_message(chat_id=chat_id, message_id=message_id)
         except:
-            pass
+            print("Celery error")
 
     asyncio.run(delete())

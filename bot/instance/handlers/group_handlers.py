@@ -77,229 +77,234 @@ async def get_group_member(chat_id, tg_user_id):
 
 
 async def all_message(message: Message, bot: Bot):
-    if message.left_chat_member or message.new_chat_members:
-        await delete_message(message, bot)
-        return
+    try:
+        if message.left_chat_member or message.new_chat_members:
+            await delete_message(message, bot)
+            return
+        chat_id = message.chat.id
+        from_user = message.from_user
+        is_private = False
 
-    chat_id = message.chat.id
-    from_user = message.from_user
-    is_private = False
+        if message.chat.type in ['private']:
+            is_private = True
 
-    if message.chat.type in ['private']:
-        is_private = True
+        tg_user = await TgUser.get_by_chat_id(message.from_user.id)
 
-    tg_user = await TgUser.get_by_chat_id(message.from_user.id)
+        if not tg_user:
+            tg_user = await TgUser.create_tg_user(
+                chat_id=from_user.id,
+                full_name=from_user.full_name,
+                is_private=is_private
+            )
+        elif not tg_user.is_private and is_private:
+            tg_user = await tg_user.update_is_private(is_private=is_private)
 
-    if not tg_user:
-        tg_user = await TgUser.create_tg_user(
-            chat_id=from_user.id,
-            full_name=from_user.full_name,
-            is_private=is_private
-        )
-    elif not tg_user.is_private and is_private:
-        tg_user = await tg_user.update_is_private(is_private=is_private)
+        if not message.chat.type in ['group', 'supergroup']:
+            return
 
-    if not message.chat.type in ['group', 'supergroup']:
-        return
+        group = await Group.get_by_chat_id(chat_id=chat_id)
+        if not group:
+            group = await Group.create_group(
+                chat_id=chat_id,
+                title=message.chat.full_name
+            )
+            print(f"Guruh qo'shildi! {chat_id};  {message.chat.full_name}")
 
-    group = await Group.get_by_chat_id(chat_id=chat_id)
-    if not group:
-        group = await Group.create_group(
-            chat_id=chat_id,
-            title=message.chat.full_name
-        )
-        print(f"Guruh qo'shildi! {chat_id};  {message.chat.full_name}")
+        group_member = await get_group_member(chat_id=group.chat_id, tg_user_id=tg_user.chat_id)
+        if not group.is_admin:
+            admins = await get_group_admins_from_telegram(group, message.bot)
+        else:
+            admins = [group.chat_id]
 
-    group_member = await get_group_member(chat_id=group.chat_id, tg_user_id=tg_user.chat_id)
-    if not group.is_admin:
-        admins = await get_group_admins_from_telegram(group, message.bot)
-    else:
-        admins = [group.chat_id]
+        if not group.chat_id in admins:
+            return
 
-    if not group.chat_id in admins:
-        return
+        if await GroupAdmin.check_admin(group.chat_id, tg_user.chat_id):
+            return
 
-    if await GroupAdmin.check_admin(group.chat_id, tg_user.chat_id):
-        return
+        # odam qo'shi majburiyatini tekshirish
+        if group_member.invite_count < group.required_members:
+            msg = await message.answer(
+                text=(
+                    f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
+                    "*xabar yuborish uchun ko'proq a'zo taklif qilishingiz kerak!*\n\n"
+                    f"📊 *Hozirgi holat*: Siz {group_member.invite_count} ta a'zo taklif qildingiz.\n"
+                    f"🎯 *Talab*: Guruhga {group.required_members} ta a'zo taklif qilish kerak.\n"
+                    f"🔢 *Yana kerak*: {group.required_members - group_member.invite_count} ta a'zo taklif qiling.\n"
+                    "📌 Iltimos, yetishmayotgan a'zolarni taklif qiling va keyin xabar yozing!\n\n"
+                    "📌 *Eslatma*: Siz 1 daqiqaga xabar yuborishdan cheklandingiz."
+                ),
+                parse_mode="Markdown",
+                reply_markup=add_group_inline_markup,
+            )
 
-    # odam qo'shi majburiyatini tekshirish
-    if group_member.invite_count < group.required_members:
-        msg = await message.answer(
-            text=(
-                f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
-                "*xabar yuborish uchun ko'proq a'zo taklif qilishingiz kerak!*\n\n"
-                f"📊 *Hozirgi holat*: Siz {group_member.invite_count} ta a'zo taklif qildingiz.\n"
-                f"🎯 *Talab*: Guruhga {group.required_members} ta a'zo taklif qilish kerak.\n"
-                f"🔢 *Yana kerak*: {group.required_members - group_member.invite_count} ta a'zo taklif qiling.\n"
-                "📌 Iltimos, yetishmayotgan a'zolarni taklif qiling va keyin xabar yozing!\n\n"
-                "📌 *Eslatma*: Siz 1 daqiqaga xabar yuborishdan cheklandingiz."
-            ),
-            parse_mode="Markdown",
-            reply_markup=add_group_inline_markup,
-        )
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            return
 
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
-        return
+        # Kanalga a'zo bo'lishini tekshirish
+        if group.required_channel and not await ChannelMember.check_member(group.required_channel, tg_user.chat_id):
+            msg = await message.answer(
+                text=(
+                    f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
+                    "*xabar yuborish uchun quyidagi kanalga qo'shilishingiz kerak!*\n\n"
+                    "📌 *Eslatma*: Agar kanalga qo'shilgan bo'lsangiz, lekin xabar yozolmayotgan bo'lsangiz, "
+                    "kanaldan chiqib, qayta qo'shiling va keyin xabar yuborib ko'ring!"
+                ),
+                parse_mode="Markdown",
+                reply_markup=await invite_channel_inline_markup(group.required_channel_title, group.required_channel_username)
+            )
 
-    # Kanalga a'zo bo'lishini tekshirish
-    if group.required_channel and not await ChannelMember.check_member(group.required_channel, tg_user.chat_id):
-        msg = await message.answer(
-            text=(
-                f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
-                "*xabar yuborish uchun quyidagi kanalga qo'shilishingiz kerak!*\n\n"
-                "📌 *Eslatma*: Agar kanalga qo'shilgan bo'lsangiz, lekin xabar yozolmayotgan bo'lsangiz, "
-                "kanaldan chiqib, qayta qo'shiling va keyin xabar yuborib ko'ring!"
-            ),
-            parse_mode="Markdown",
-            reply_markup=await invite_channel_inline_markup(group.required_channel_title, group.required_channel_username)
-        )
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            return
 
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
-        return
+        if message.from_user.first_name == 'channel':
+            msg = await message.answer(
+                text=(
+                    f"🚫 Kanal nomidan xabar yuborish mumkin emas!\n\n"
+                    "📌 Iltimos, shaxsiy hisobingizdan xabar yozing."
+                ),
+                parse_mode="Markdown"
+            )
 
-    if message.from_user.first_name == 'channel':
-        msg = await message.answer(
-            text=(
-                f"🚫 Kanal nomidan xabar yuborish mumkin emas!\n\n"
-                "📌 Iltimos, shaxsiy hisobingizdan xabar yozing."
-            ),
-            parse_mode="Markdown"
-        )
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            return
 
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
-        return
+        if message.forward_date or message.story or message.link_preview_options:
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            return
 
-    if message.forward_date or message.story or message.link_preview_options:
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        return
+        if await is_blocked_message(message.text):
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            return
 
-    if await is_blocked_message(message.text):
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        return
-
-    if has_link(message.html_text):
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        return
+        if has_link(message.html_text):
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            return
+    except Exception as e:
+        print(f"All messages: {e}")
 
 
 async def edited_message(message: Message, bot: Bot):
-    chat_id = message.chat.id
-    from_user = message.from_user
-    is_private = False
+    try:
+        chat_id = message.chat.id
+        from_user = message.from_user
+        is_private = False
 
-    if message.chat.type in ['private']:
-        is_private = True
+        if message.chat.type in ['private']:
+            is_private = True
 
-    tg_user = await TgUser.get_by_chat_id(message.from_user.id)
+        tg_user = await TgUser.get_by_chat_id(message.from_user.id)
 
-    if not tg_user:
-        tg_user = await TgUser.create_tg_user(
-            chat_id=from_user.id,
-            full_name=from_user.full_name,
-            is_private=is_private
-        )
-    elif not tg_user.is_private and is_private:
-        tg_user = await tg_user.update_is_private(is_private=is_private)
+        if not tg_user:
+            tg_user = await TgUser.create_tg_user(
+                chat_id=from_user.id,
+                full_name=from_user.full_name,
+                is_private=is_private
+            )
+        elif not tg_user.is_private and is_private:
+            tg_user = await tg_user.update_is_private(is_private=is_private)
 
-    if not message.chat.type in ['group', 'supergroup']:
-        return
+        if not message.chat.type in ['group', 'supergroup']:
+            return
 
-    group = await Group.get_by_chat_id(chat_id=chat_id)
-    if not group:
-        group = await Group.create_group(
-            chat_id=chat_id,
-            title=message.chat.full_name
-        )
-        print(f"Guruh qo'shildi! {chat_id};  {message.chat.full_name}")
+        group = await Group.get_by_chat_id(chat_id=chat_id)
+        if not group:
+            group = await Group.create_group(
+                chat_id=chat_id,
+                title=message.chat.full_name
+            )
+            print(f"Guruh qo'shildi! {chat_id};  {message.chat.full_name}")
 
-    group_member = await get_group_member(chat_id=group.chat_id, tg_user_id=tg_user.chat_id)
-    if not group.is_admin:
-        admins = await get_group_admins_from_telegram(group, message.bot)
-    else:
-        admins = [group.chat_id]
+        group_member = await get_group_member(chat_id=group.chat_id, tg_user_id=tg_user.chat_id)
+        if not group.is_admin:
+            admins = await get_group_admins_from_telegram(group, message.bot)
+        else:
+            admins = [group.chat_id]
 
-    if not group.chat_id in admins:
-        return
+        if not group.chat_id in admins:
+            return
 
-    if await GroupAdmin.check_admin(group.chat_id, tg_user.chat_id):
-        return
+        if await GroupAdmin.check_admin(group.chat_id, tg_user.chat_id):
+            return
 
-    # odam qo'shi majburiyatini tekshirish
-    if group_member.invite_count < group.required_members:
-        msg = await message.answer(
-            text=(
-                f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
-                "*xabar yuborish uchun ko'proq a'zo taklif qilishingiz kerak!*\n\n"
-                f"📊 *Hozirgi holat*: Siz {group_member.invite_count} ta a'zo taklif qildingiz.\n"
-                f"🎯 *Talab*: Guruhga {group.required_members} ta a'zo taklif qilish kerak.\n"
-                f"🔢 *Yana kerak*: {group.required_members - group_member.invite_count} ta a'zo taklif qiling.\n"
-                "📌 Iltimos, yetishmayotgan a'zolarni taklif qiling va keyin xabar yozing!\n\n"
-                "📌 *Eslatma*: Siz 1 daqiqaga xabar yuborishdan cheklandingiz."
-            ),
-            parse_mode="Markdown",
-            reply_markup=add_group_inline_markup,
-        )
+        # odam qo'shi majburiyatini tekshirish
+        if group_member.invite_count < group.required_members:
+            msg = await message.answer(
+                text=(
+                    f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
+                    "*xabar yuborish uchun ko'proq a'zo taklif qilishingiz kerak!*\n\n"
+                    f"📊 *Hozirgi holat*: Siz {group_member.invite_count} ta a'zo taklif qildingiz.\n"
+                    f"🎯 *Talab*: Guruhga {group.required_members} ta a'zo taklif qilish kerak.\n"
+                    f"🔢 *Yana kerak*: {group.required_members - group_member.invite_count} ta a'zo taklif qiling.\n"
+                    "📌 Iltimos, yetishmayotgan a'zolarni taklif qiling va keyin xabar yozing!\n\n"
+                    "📌 *Eslatma*: Siz 1 daqiqaga xabar yuborishdan cheklandingiz."
+                ),
+                parse_mode="Markdown",
+                reply_markup=add_group_inline_markup,
+            )
 
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
-        return
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            return
 
-    # Kanalga a'zo bo'lishini tekshirish
-    if group.required_channel and not await ChannelMember.check_member(group.required_channel, tg_user.chat_id):
-        msg = await message.answer(
-            text=(
-                f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
-                "*xabar yuborish uchun quyidagi kanalga qo'shilishingiz kerak!*\n\n"
-                "📌 *Eslatma*: Agar kanalga qo'shilgan bo'lsangiz, lekin xabar yozolmayotgan bo'lsangiz, "
-                "kanaldan chiqib, qayta qo'shiling va keyin xabar yuborib ko'ring!"
-            ),
-            parse_mode="Markdown",
-            reply_markup=await invite_channel_inline_markup(group.required_channel_title, group.required_channel_username)
-        )
+        # Kanalga a'zo bo'lishini tekshirish
+        if group.required_channel and not await ChannelMember.check_member(group.required_channel, tg_user.chat_id):
+            msg = await message.answer(
+                text=(
+                    f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
+                    "*xabar yuborish uchun quyidagi kanalga qo'shilishingiz kerak!*\n\n"
+                    "📌 *Eslatma*: Agar kanalga qo'shilgan bo'lsangiz, lekin xabar yozolmayotgan bo'lsangiz, "
+                    "kanaldan chiqib, qayta qo'shiling va keyin xabar yuborib ko'ring!"
+                ),
+                parse_mode="Markdown",
+                reply_markup=await invite_channel_inline_markup(group.required_channel_title, group.required_channel_username)
+            )
 
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
-        return
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            return
 
-    if message.from_user.first_name == 'channel':
-        msg = await message.answer(
-            text=(
-                f"🚫 Kanal nomidan xabar yuborish mumkin emas!\n\n"
-                "📌 Iltimos, shaxsiy hisobingizdan xabar yozing."
-            ),
-            parse_mode="Markdown"
-        )
+        if message.from_user.first_name == 'channel':
+            msg = await message.answer(
+                text=(
+                    f"🚫 Kanal nomidan xabar yuborish mumkin emas!\n\n"
+                    "📌 Iltimos, shaxsiy hisobingizdan xabar yozing."
+                ),
+                parse_mode="Markdown"
+            )
 
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
-        return
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            return
 
-    if message.forward_date or message.story or message.link_preview_options:
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        return
+        if message.forward_date or message.story or message.link_preview_options:
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            return
 
-    if await is_blocked_message(message.text):
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        return
+        if await is_blocked_message(message.text):
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            return
 
-    if has_link(message.html_text):
-        await delete_message(message, bot)
-        await restrict_user(group.chat_id, tg_user.chat_id, bot)
-        return
+        if has_link(message.html_text):
+            await delete_message(message, bot)
+            await restrict_user(group.chat_id, tg_user.chat_id, bot)
+            return
+    except Exception as e:
+        print(f"Edited message: {e}")
 
 
 async def admin_changed(event: ChatMemberUpdated, bot: Bot):
@@ -583,9 +588,10 @@ async def delete_message(message: Message, bot: Bot):
 
     except Exception as e:
         print(f"Xatolik: Bot xabarni o'chira olmadi. Xato: {str(e)}")
-        if "message to delete not found" in e:
+        if "message to delete not found" in str(e):
             print(f"⚠️ Xabar topilmadi: chat_id={chat_id}, message_id={message_id}")
             return
+
 
         # Telegram API orqali botning admin statusini tekshirish
         try:
