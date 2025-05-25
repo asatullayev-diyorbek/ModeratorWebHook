@@ -2,6 +2,12 @@ from django.contrib import admin
 from unfold.admin import ModelAdmin
 from .models import TgUser, Group, GroupMember, Word, ChannelMember, GroupAdmin, GroupMemberInvitedHistory
 
+from django.contrib.auth.models import User, Group as DGroup
+
+# Avval standart registratsiyani bekor qilamiz
+admin.site.unregister(User)
+admin.site.unregister(DGroup)
+
 
 @admin.register(TgUser)
 class TgUserAdmin(ModelAdmin):
@@ -60,3 +66,11 @@ class GroupMemberInvitedHistoryAdmin(ModelAdmin):
     )
 
     list_editable = ()
+
+
+# Optional: You can customize these if needed
+@admin.register(User)
+class CustomUserAdmin(ModelAdmin):
+    list_display = ('username', 'first_name', 'last_name', 'is_staff', 'is_active')
+    ordering = ('username',)
+

@@ -9,9 +9,9 @@ load_dotenv(dotenv_path, override=True)
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['www.universalbot.asatullayev.uz', 'universalbot.asatullayev.uz']
+ALLOWED_HOSTS = ['127.0.0.1', 'www.universal.asatullayev.uz', 'universal.asatullayev.uz']
 
 # BOT configuration
 BOT_HOST = os.getenv('BOT_HOST')
@@ -93,7 +93,7 @@ AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = 'uz-Uz'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Tashkent'
 
 USE_I18N = True
 

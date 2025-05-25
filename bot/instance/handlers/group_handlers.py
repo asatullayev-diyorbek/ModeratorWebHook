@@ -11,8 +11,6 @@ from bot.models import TgUser, Group, GroupMember, GroupAdmin, GroupMemberInvite
 from bot.instance.handlers.keyboards import add_group_inline_markup, invite_channel_inline_markup
 
 
-
-
 async def get_group_admins_from_telegram(group, bot: Bot):
     try:
         # Telegramdan joriy adminlar ro'yxatini olish
