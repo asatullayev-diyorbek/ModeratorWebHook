@@ -213,7 +213,7 @@ LOGGING = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': '/home/ubuntu/ModeratorWebHook/logs/debug.log',
+            'filename': BASE_DIR / 'logs/debug.log',
         },
     },
     'loggers': {
