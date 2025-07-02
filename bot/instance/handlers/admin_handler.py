@@ -1,9 +1,7 @@
-from aiogram.types import Message, ChatMemberUpdated
+from aiogram.types import Message
 from aiogram import Bot
 
-from bot.tasks import delete_message_later
-
-from bot.models import TgUser, Group, GroupMember, GroupAdmin, GroupMemberInvitedHistory, ChannelMember
+from bot.models import TgUser, Group, GroupAdmin
 from bot.instance.handlers.keyboards import add_group_inline_markup
 from bot.instance.handlers.group_handlers import delete_message, get_group_admins_from_telegram, get_group_member
 
@@ -13,7 +11,7 @@ async def handle_meni(message: Message, bot: Bot):
     is_private = False
 
     if message.chat.type == "private":
-        msg = await message.answer(
+        await message.answer(
             text=(
                 "🚫 *Bu buyruq faqat guruhlarda ishlaydi!*\n\n"
                 "👥 Iltimos, bu buyrugʻdan guruhda foydalaning: `/meni`\n"
@@ -53,7 +51,7 @@ async def handle_meni(message: Message, bot: Bot):
         admins = [bot.id]
 
     if not bot.id in admins:
-        msg = await message.bot.send_message(
+        await message.bot.send_message(
             chat_id=message.chat.id,
             text="🚫 Bot guruhda admin emas!\n\n"
                  "Botga quyidagi ruxsatlarni bering:\n"
@@ -64,19 +62,19 @@ async def handle_meni(message: Message, bot: Bot):
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     group_member = await get_group_member(chat_id=group.chat_id, tg_user_id=tg_user.chat_id)
 
-    msg = await message.answer(
+    await message.answer(
         text=(
             f"🎉 <a href='tg://user?id={tg_user.chat_id}'>{tg_user.full_name}</a>, ajoyib natija! 👏\n\n"
             f"🔗 Siz hozirgacha {group_member.invite_count} ta do‘stni guruhga taklif qildingiz! 🎯\n"
         ),
         parse_mode='HTML'
     )
-    delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+    
 
 
 async def handle_guruh(message: Message, bot: Bot):
@@ -85,7 +83,7 @@ async def handle_guruh(message: Message, bot: Bot):
 
     # Agar xabar shaxsiy suhbatdan kelsa
     if message.chat.type == "private":
-        msg = await message.answer(
+        await message.answer(
             text="🚫 *Bu buyruq faqat guruhlarda ishlaydi!*\n\n"
                  "👥 Iltimos, guruhda `/guruh` buyrug'idan foydalaning.\n"
                  "📌 Guruhda botni admin qilib, majburiy a'zolar sonini sozlashingiz mumkin!\n"
@@ -111,7 +109,7 @@ async def handle_guruh(message: Message, bot: Bot):
         admins = [bot.id]
 
     if not bot.id in admins:
-        msg = await message.bot.send_message(
+        await message.bot.send_message(
             chat_id=message.chat.id,
             text="🚫 Bot guruhda admin emas!\n\n"
                  "Botga quyidagi ruxsatlarni bering:\n"
@@ -122,12 +120,12 @@ async def handle_guruh(message: Message, bot: Bot):
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     if not await GroupAdmin.check_admin(chat_id, from_user.id):
         print(f"Chat: {chat_id}   User: {from_user.id}")
-        msg = await message.answer(
+        await message.answer(
             text=(
                 f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                 "*siz guruhda admin emassiz!*\n\n"
@@ -137,13 +135,13 @@ async def handle_guruh(message: Message, bot: Bot):
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     # Buyruq argumentlarini olish
     args = message.text.split()
     if len(args) < 2:
-        msg = await message.answer(
+        await message.answer(
             text="ℹ️ *Majburiy a'zolar sonini kiriting!*\n\n"
                  f"📊 *Hozirgi sozlama*: {f"{group.required_members} ta" if group.required_members != 0 else "Yoqilmagan"}\n\n"
                  "📋 *Qanday ishlatiladi?*\n"
@@ -156,71 +154,71 @@ async def handle_guruh(message: Message, bot: Bot):
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     try:
         required_count = int(args[1])  # Raqamni olish
         if required_count < 0:
-            msg = await message.answer(
+            await message.answer(
                 text="❌ *Raqam 0 yoki undan katta bo'lishi kerak!*\n\n"
                      "🔢 Majburiy a'zolar soni sifatida faqat 0 yoki musbat raqam kiritishingiz mumkin.\n"
                      "📌 Masalan: `/guruh 5` yoki `/guruh 0`",
                 parse_mode="Markdown",
                 reply_parameters=add_group_inline_markup
             )
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         if required_count == 0:
             await group.update_required_member_count(required_count=required_count)
-            msg = await message.answer(
+            await message.answer(
                 text="✅ *Majburiy odam qo'shish o'chirildi!*\n\n"
                      "📴 Endi guruhda majburiy a'zo qo'shish talabi yo'q.\n"
                      "🔄 Agar qayta yoqmoqchi bo'lsangiz, masalan: `/guruh 5`",
                 parse_mode="Markdown",
                 reply_markup=add_group_inline_markup
             )
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
         else:
             await group.update_required_member_count(required_count=required_count)
-            msg = await message.answer(
+            await message.answer(
                 text=f"✅ *Majburiy odam qo'shish soni {required_count} ga o'rnatildi!*\n\n"
                      f"👥 Endi guruhga {required_count} ta majburiy a'zo qo'shish kerak.\n"
                      "🔄 O'zgartirish uchun, masalan: `/guruh 0` yoki `/guruh 5`",
                 parse_mode="Markdown",
                 reply_markup=add_group_inline_markup
             )
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
     except ValueError:
-        msg = await message.answer(
+        await message.answer(
             text="❌ *Iltimos, to'g'ri raqam kiriting!*\n\n"
                  "🔢 Faqat raqam kiritishingiz mumkin (0 yoki undan katta).\n"
                  "📌 Masalan: `/guruh 5` yoki `/guruh 0`",
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
-    except Exception as e:
-        msg = await message.answer(
+    except:
+        await message.answer(
             text="❌ *Nimadir xato ketdi!*\n\n"
                  "🔄 Iltimos qayta urinib ko‘ring.",
             parse_mode="Markdown",
             reply_parameters=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
 
 
 async def handle_kanal(message: Message, bot: Bot):
     await delete_message(message, bot)
 
     if message.chat.type == "private":
-        msg = await message.answer(
+        await message.answer(
             text=(
                 "🚫 *Bu buyruq faqat guruhlarda ishlaydi!*\n\n"
                 "👥 Iltimos, bu buyrugʻdan guruhda foydalaning: `/kanal`\n"
@@ -248,7 +246,7 @@ async def handle_kanal(message: Message, bot: Bot):
         admins = [bot.id]
 
     if not bot.id in admins:
-        msg = await message.bot.send_message(
+        await message.bot.send_message(
             chat_id=message.chat.id,
             text="🚫 Bot guruhda admin emas!\n\n"
                  "Botga quyidagi ruxsatlarni bering:\n"
@@ -259,11 +257,11 @@ async def handle_kanal(message: Message, bot: Bot):
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     if not await GroupAdmin.check_admin(chat_id, from_user.id):
-        msg = await message.answer(
+        await message.answer(
             text=(
                 f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                 "*siz guruhda admin emassiz!*\n\n"
@@ -273,12 +271,12 @@ async def handle_kanal(message: Message, bot: Bot):
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     args = message.text.split()
     if len(args) < 2:
-        msg = await message.answer(
+        await message.answer(
             text="ℹ️ *Majburiy kanalga a'zo bo'lish sozlamasini kiriting!*\n\n"
                  f"📊 *Hozirgi sozlama*: {('Yoqilmagan' if not group.required_channel else f'[{group.required_channel_title}](https://t.me/c/{str(group.required_channel)[4:]})')}\n\n"
                  "📋 *Qanday ishlatiladi?*\n"
@@ -291,7 +289,7 @@ async def handle_kanal(message: Message, bot: Bot):
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     kanal_username = args[1]
@@ -299,84 +297,84 @@ async def handle_kanal(message: Message, bot: Bot):
     if kanal_username.lower() == "off":
         if group.required_channel:
             await group.update_required_channel(None, None)
-            msg = await message.answer(
+            await message.answer(
                 text="✅ *Majburiy kanalga aʼzo bo‘lish talabi o‘chirildi!*\n\n"
                      "📴 Endi guruhga yozish uchun hech qanday kanalga aʼzo bo‘lish shart emas.",
                 parse_mode="Markdown",
                 reply_markup=add_group_inline_markup
             )
         else:
-            msg = await message.answer(
+            await message.answer(
                 text="ℹ️ *Majburiy kanalga aʼzo bo‘lish talabi yoqilmagan!*\n\n"
                      "Yoqish uchun: `/kanal @LiderAvtoUz`",
                 parse_mode="Markdown",
                 reply_markup=add_group_inline_markup
             )
 
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     if not kanal_username.startswith('@'):
-        msg = await message.answer(
+        await message.answer(
             text="❌ *Iltimos, kanal usernamesini to‘g‘ri kiriting!*\n\n"
                  "Masalan: `/kanal @LiderAvtoUz`",
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
     try:
         kanal_info = await bot.get_chat(kanal_username)
         if kanal_info.type != 'channel':
-            msg = await message.answer(
+            await message.answer(
                 text="❌ *Bu username kanalga tegishli emas!*\n\n"
                      "Faqat kanal usernamesini kiriting.",
                 parse_mode="Markdown",
                 reply_markup=add_group_inline_markup
             )
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         try:
             bot_member = await bot.get_chat_member(chat_id=kanal_info.id, user_id=bot.id)
-        except Exception as e:
-            msg = await message.answer(
+        except:
+            await message.answer(
                 "❌ *Xatolik!*\n\n"
                 "Bot ushbu kanalda mavjud emas yoki kanal topilmadi.\n\n"
                 "ℹ️ Iltimos, kanal username'sini to‘g‘ri kiriting va botni kanalga qo‘shganingizga ishonch hosil qiling.",
                 parse_mode="Markdown"
             )
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         if bot_member.status not in ("administrator", "creator"):
-            msg = await message.answer(
+            await message.answer(
                 "❌ Bot ushbu kanalda *admin* emas.\n\n"
                 "ℹ️ Iltimos, botni kanalga admin qilib qo‘shing va qayta urinib ko‘ring.",
                 parse_mode="Markdown"
             )
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         await group.update_required_channel(kanal_info.id, kanal_info.title, kanal_info.username)
 
-        msg = await message.answer(
+        await message.answer(
             text=f"✅ *Kanal muvaffaqiyatli ulandi!*\n\n"
                  f"📢 Kanal: [{kanal_info.title}](https://t.me/{kanal_info.username})\n"
                  "🔒 Endi guruhga yozish uchun ushbu kanalda aʼzo boʻlish shart.",
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return
 
-    except Exception as e:
-        msg = await message.answer(
+    except:
+        await message.answer(
             text="❌ *Kanal topilmadi yoki xatolik yuz berdi!*\n\n"
                  "📋 Iltimos, to‘g‘ri kanal usernamesini kiriting va botni kanalga admin qiling (kamida 'xabar o'qish' huquqi bo‘lsin).",
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+        
         return

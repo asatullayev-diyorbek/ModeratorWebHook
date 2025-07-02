@@ -26,7 +26,6 @@ from bot.instance.handlers.admin_handler import (
 )
 
 webhook_dp = Dispatcher()
-
 webhook_dp.message.register(handle_start, CommandStart())  # /start
 webhook_dp.message.register(handle_help, Command('help')) # /help
 webhook_dp.message.register(handle_guruh, Command('guruh'))

@@ -5,8 +5,6 @@ import re
 from aiogram.types import Message, ChatMemberUpdated, ChatPermissions
 from aiogram import Bot
 
-from bot.tasks import delete_message_later
-
 from bot.models import TgUser, Group, GroupMember, GroupAdmin, GroupMemberInvitedHistory, ChannelMember, Word
 from bot.instance.handlers.keyboards import add_group_inline_markup, invite_channel_inline_markup
 
@@ -122,7 +120,7 @@ async def all_message(message: Message, bot: Bot):
 
         # odam qo'shi majburiyatini tekshirish
         if group_member.invite_count < group.required_members:
-            msg = await message.answer(
+            await message.answer(
                 text=(
                     f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                     "*xabar yuborish uchun ko'proq a'zo taklif qilishingiz kerak!*\n\n"
@@ -138,12 +136,12 @@ async def all_message(message: Message, bot: Bot):
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         # Kanalga a'zo bo'lishini tekshirish
         if group.required_channel and not await ChannelMember.check_member(group.required_channel, tg_user.chat_id):
-            msg = await message.answer(
+            await message.answer(
                 text=(
                     f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                     "*xabar yuborish uchun quyidagi kanalga qo'shilishingiz kerak!*\n\n"
@@ -156,11 +154,11 @@ async def all_message(message: Message, bot: Bot):
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         if message.from_user.first_name == 'channel':
-            msg = await message.answer(
+            await message.answer(
                 text=(
                     f"🚫 Kanal nomidan xabar yuborish mumkin emas!\n\n"
                     "📌 Iltimos, shaxsiy hisobingizdan xabar yozing."
@@ -170,7 +168,7 @@ async def all_message(message: Message, bot: Bot):
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         if message.forward_date or message.story or message.link_preview_options:
@@ -236,7 +234,7 @@ async def edited_message(message: Message, bot: Bot):
 
         # odam qo'shi majburiyatini tekshirish
         if group_member.invite_count < group.required_members:
-            msg = await message.answer(
+            await message.answer(
                 text=(
                     f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                     "*xabar yuborish uchun ko'proq a'zo taklif qilishingiz kerak!*\n\n"
@@ -252,12 +250,12 @@ async def edited_message(message: Message, bot: Bot):
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         # Kanalga a'zo bo'lishini tekshirish
         if group.required_channel and not await ChannelMember.check_member(group.required_channel, tg_user.chat_id):
-            msg = await message.answer(
+            await message.answer(
                 text=(
                     f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                     "*xabar yuborish uchun quyidagi kanalga qo'shilishingiz kerak!*\n\n"
@@ -270,11 +268,11 @@ async def edited_message(message: Message, bot: Bot):
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         if message.from_user.first_name == 'channel':
-            msg = await message.answer(
+            await message.answer(
                 text=(
                     f"🚫 Kanal nomidan xabar yuborish mumkin emas!\n\n"
                     "📌 Iltimos, shaxsiy hisobingizdan xabar yozing."
@@ -284,7 +282,7 @@ async def edited_message(message: Message, bot: Bot):
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
+            
             return
 
         if message.forward_date or message.story or message.link_preview_options:
@@ -466,19 +464,12 @@ async def handle_start(message: Message, bot: Bot) -> None:
 🎥 @Video_qollanma_kanali
 """
 
-    msg = await message.bot.send_message(
+    await message.bot.send_message(
         chat_id=message.chat.id,  
         text=text,
         parse_mode='HTML',
         reply_markup=add_group_inline_markup
     )
-
-    if not is_private:
-        try:
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
-        except Exception as e:
-            print("Yubrishda muammo")
-            print(e)
 
 
 async def handle_help(message: Message, bot: Bot) -> None:
@@ -553,20 +544,12 @@ _
 🎥 @Video_qollanma_kanali
 """
 
-    msg = await message.bot.send_message(
+    await message.bot.send_message(
         chat_id=message.chat.id,
         text=text,
         parse_mode='HTML',
         reply_markup=add_group_inline_markup
     )
-
-    if not is_private:
-        try:
-            delete_message_later.delay(chat_id=msg.chat.id, message_id=msg.message_id)
-        except Exception as e:
-            print("O'chirishda muammo")
-            print(e)
-
 
 # Kerakli funksiyalar
 

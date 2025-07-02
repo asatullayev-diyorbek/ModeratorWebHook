@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['13.232.224.79', '127.0.0.1', 'www.universal.asatullayev.uz', 'universal.asatullayev.uz']
+ALLOWED_HOSTS = ['*']
 
 # BOT configuration
 BOT_HOST = os.getenv('BOT_HOST')
