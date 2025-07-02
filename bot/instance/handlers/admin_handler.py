@@ -143,7 +143,7 @@ async def handle_guruh(message: Message, bot: Bot):
     if len(args) < 2:
         await message.answer(
             text="ℹ️ *Majburiy a'zolar sonini kiriting!*\n\n"
-                 f"📊 *Hozirgi sozlama*: {f"{group.required_members} ta" if group.required_members != 0 else "Yoqilmagan"}\n\n"
+                 f"📊 *Hozirgi sozlama*: {str(group.required_members) + ' ta' if group.required_members != 0 else 'Yoqilmagan'}\n\n"
                  "📋 *Qanday ishlatiladi?*\n"
                  "👉 `/guruh 0` — Majburiy qo'shishni o'chirish.\n"
                  "👉 `/guruh <raqam>` — Majburiy a'zolar sonini belgilash.\n\n"
@@ -154,7 +154,7 @@ async def handle_guruh(message: Message, bot: Bot):
             parse_mode="Markdown",
             reply_markup=add_group_inline_markup
         )
-        
+
         return
 
     try:
