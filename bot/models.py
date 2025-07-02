@@ -1,5 +1,32 @@
+from datetime import timedelta
+
 from django.db import models
 from asgiref.sync import sync_to_async
+from django.utils import timezone
+
+
+class OldMessage(models.Model):
+    chat_id = models.BigIntegerField()
+    message_id = models.BigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    @sync_to_async
+    def add(cls, chat_id, message_id):
+        return cls.objects.create(
+            chat_id=chat_id,
+            message_id=message_id
+        )
+
+    @sync_to_async
+    def remove(self):
+        self.delete()
+
+    @classmethod
+    @sync_to_async
+    def get_old(cls):
+        one_minute_ago = timezone.now() - timedelta(minutes=1)
+        return list(cls.objects.filter(created_at__lte=one_minute_ago).order_by('created_at'))
 
 
 class TgUser(models.Model):

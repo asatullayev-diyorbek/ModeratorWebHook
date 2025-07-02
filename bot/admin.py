@@ -1,12 +1,16 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import TgUser, Group, GroupMember, Word, ChannelMember, GroupAdmin, GroupMemberInvitedHistory
+from .models import TgUser, Group, GroupMember, Word, ChannelMember, GroupAdmin, GroupMemberInvitedHistory, OldMessage
 
 from django.contrib.auth.models import User, Group as DGroup
 
 # Avval standart registratsiyani bekor qilamiz
 admin.site.unregister(User)
 admin.site.unregister(DGroup)
+
+@admin.register(OldMessage)
+class OldMessageAdmin(ModelAdmin):
+    list_display = ('chat_id', 'message_id', 'created_at')
 
 
 @admin.register(TgUser)

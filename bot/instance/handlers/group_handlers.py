@@ -5,7 +5,8 @@ import re
 from aiogram.types import Message, ChatMemberUpdated, ChatPermissions
 from aiogram import Bot
 
-from bot.models import TgUser, Group, GroupMember, GroupAdmin, GroupMemberInvitedHistory, ChannelMember, Word
+from bot.models import TgUser, Group, GroupMember, GroupAdmin, GroupMemberInvitedHistory, ChannelMember, Word, \
+    OldMessage
 from bot.instance.handlers.keyboards import add_group_inline_markup, invite_channel_inline_markup
 
 
@@ -120,7 +121,7 @@ async def all_message(message: Message, bot: Bot):
 
         # odam qo'shi majburiyatini tekshirish
         if group_member.invite_count < group.required_members:
-            await message.answer(
+            msg = await message.answer(
                 text=(
                     f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                     "*xabar yuborish uchun ko'proq a'zo taklif qilishingiz kerak!*\n\n"
@@ -133,6 +134,7 @@ async def all_message(message: Message, bot: Bot):
                 parse_mode="Markdown",
                 reply_markup=add_group_inline_markup,
             )
+            await OldMessage.add(msg.chat.id, msg.message_id)
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
@@ -141,7 +143,7 @@ async def all_message(message: Message, bot: Bot):
 
         # Kanalga a'zo bo'lishini tekshirish
         if group.required_channel and not await ChannelMember.check_member(group.required_channel, tg_user.chat_id):
-            await message.answer(
+            msg = await message.answer(
                 text=(
                     f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                     "*xabar yuborish uchun quyidagi kanalga qo'shilishingiz kerak!*\n\n"
@@ -151,6 +153,7 @@ async def all_message(message: Message, bot: Bot):
                 parse_mode="Markdown",
                 reply_markup=await invite_channel_inline_markup(group.required_channel_title, group.required_channel_username)
             )
+            await OldMessage.add(msg.chat.id, msg.message_id)
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
@@ -158,13 +161,14 @@ async def all_message(message: Message, bot: Bot):
             return
 
         if message.from_user.first_name == 'channel':
-            await message.answer(
+            msg = await message.answer(
                 text=(
                     f"🚫 Kanal nomidan xabar yuborish mumkin emas!\n\n"
                     "📌 Iltimos, shaxsiy hisobingizdan xabar yozing."
                 ),
                 parse_mode="Markdown"
             )
+            await OldMessage.add(msg.chat.id, msg.message_id)
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
@@ -234,7 +238,7 @@ async def edited_message(message: Message, bot: Bot):
 
         # odam qo'shi majburiyatini tekshirish
         if group_member.invite_count < group.required_members:
-            await message.answer(
+            msg = await message.answer(
                 text=(
                     f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                     "*xabar yuborish uchun ko'proq a'zo taklif qilishingiz kerak!*\n\n"
@@ -247,6 +251,7 @@ async def edited_message(message: Message, bot: Bot):
                 parse_mode="Markdown",
                 reply_markup=add_group_inline_markup,
             )
+            await OldMessage.add(msg.chat.id, msg.message_id)
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
@@ -255,7 +260,7 @@ async def edited_message(message: Message, bot: Bot):
 
         # Kanalga a'zo bo'lishini tekshirish
         if group.required_channel and not await ChannelMember.check_member(group.required_channel, tg_user.chat_id):
-            await message.answer(
+            msg = await message.answer(
                 text=(
                     f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
                     "*xabar yuborish uchun quyidagi kanalga qo'shilishingiz kerak!*\n\n"
@@ -265,6 +270,7 @@ async def edited_message(message: Message, bot: Bot):
                 parse_mode="Markdown",
                 reply_markup=await invite_channel_inline_markup(group.required_channel_title, group.required_channel_username)
             )
+            await OldMessage.add(msg.chat.id, msg.message_id)
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
@@ -272,13 +278,14 @@ async def edited_message(message: Message, bot: Bot):
             return
 
         if message.from_user.first_name == 'channel':
-            await message.answer(
+            msg = await message.answer(
                 text=(
                     f"🚫 Kanal nomidan xabar yuborish mumkin emas!\n\n"
                     "📌 Iltimos, shaxsiy hisobingizdan xabar yozing."
                 ),
                 parse_mode="Markdown"
             )
+            await OldMessage.add(msg.chat.id, msg.message_id)
 
             await delete_message(message, bot)
             await restrict_user(group.chat_id, tg_user.chat_id, bot)
@@ -464,12 +471,16 @@ async def handle_start(message: Message, bot: Bot) -> None:
 🎥 @Video_qollanma_kanali
 """
 
-    await message.bot.send_message(
+    msg = await message.bot.send_message(
         chat_id=message.chat.id,  
         text=text,
         parse_mode='HTML',
         reply_markup=add_group_inline_markup
     )
+
+    if message.chat.type in ['group', 'supergroup']:
+        await OldMessage.add(msg.chat.id, msg.message_id)
+
 
 
 async def handle_help(message: Message, bot: Bot) -> None:
@@ -544,63 +555,65 @@ _
 🎥 @Video_qollanma_kanali
 """
 
-    await message.bot.send_message(
+    msg = await message.bot.send_message(
         chat_id=message.chat.id,
         text=text,
         parse_mode='HTML',
         reply_markup=add_group_inline_markup
     )
 
+    if message.chat.type in ['group', 'supergroup']:
+        await OldMessage.add(msg.chat.id, msg.message_id)
+
+
 # Kerakli funksiyalar
 
 async def delete_message(message: Message, bot: Bot):
     """
-    Xabarni o'chirish funksiyasi. Agar xatolik chiqsa, Telegram API orqali botning admin
-    statusini tekshiradi va agar admin bo'lmasa, botni adminlar ro'yxatidan o'chiradi
-    va guruhning is_admin fieldini False qiladi.
+    Xabarni o'chirish funksiyasi. Xatolik bo'lsa, faqat log chiqaradi,
+    lekin dastur to'xtamaydi yoki xatolik qaytarmaydi.
     """
     chat_id = message.chat.id
     message_id = message.message_id
 
     try:
-        # Xabarni o'chirishga urinish
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
-        print(f"Xabar o'chirildi: chat_id={chat_id}, message_id={message_id}")
+        print(f"✅ Xabar o'chirildi: chat_id={chat_id}, message_id={message_id}")
 
     except Exception as e:
-        print(f"Xatolik: Bot xabarni o'chira olmadi. Xato: {str(e)}")
+        print(f"⚠️ Xatolik: Xabar o'chirilmadi. Xato: {str(e)}")
+
         if "message to delete not found" in str(e):
-            print(f"⚠️ Xabar topilmadi: chat_id={chat_id}, message_id={message_id}")
+            print(f"ℹ️ Xabar topilmadi (ehtimol allaqachon o'chirilgan): chat_id={chat_id}, message_id={message_id}")
             return
 
-
-        # Telegram API orqali botning admin statusini tekshirish
+        # Hatto adminlarni tekshirishda ham xato bo‘lsa – dasturni to‘xtatmaslik uchun to‘liq try-catch
         try:
             admins = await bot.get_chat_administrators(chat_id=chat_id)
             bot_is_admin = any(admin.user.id == bot.id for admin in admins)
         except Exception as admin_error:
-            print(f"Adminlarni olishda xatolik: {str(admin_error)}")
-            bot_is_admin = False  # Agar adminlarni olishda xatolik bo'lsa, bot admin emas deb hisoblaymiz
+            print(f"⚠️ Adminlar ro'yxatini olishda xatolik: {str(admin_error)}")
+            bot_is_admin = False
 
-        # Agar bot admin bo'lmasa
         if not bot_is_admin:
-            # Guruhni olish
-            group = await Group.get_by_chat_id(chat_id)
-            if group:
-                # Botni GroupAdmin ro'yxatidan o'chirish
-                bot_user = await TgUser.get_by_chat_id(bot.id)
-                if bot_user:
-                    await GroupAdmin.remove_group_admin(
-                        group_chat_id=group.chat_id,
-                        tg_user_chat_id=bot_user.chat_id
-                    )
-                    print(f"Bot {bot_user.chat_id} adminlar ro'yxatidan o'chirildi.")
+            try:
+                group = await Group.get_by_chat_id(chat_id)
+                if group:
+                    bot_user = await TgUser.get_by_chat_id(bot.id)
+                    if bot_user:
+                        await GroupAdmin.remove_group_admin(
+                            group_chat_id=group.chat_id,
+                            tg_user_chat_id=bot_user.chat_id
+                        )
+                        print(f"❌ Bot adminlar ro'yxatidan o'chirildi: {bot_user.chat_id}")
+                    await group.update_group_admin_status(is_admin=False)
+                    print(f"🔧 Guruhda is_admin=False belgilandi: {group.chat_id}")
+            except Exception as update_error:
+                print(f"⚠️ Admin statusni o'zgartirishda xatolik: {str(update_error)}")
 
-                # Guruhning is_admin fieldini False qilish
-                await group.update_group_admin_status(is_admin=False)
-                print(f"Guruh {group.chat_id} uchun is_admin=False qilindi.")
         else:
-            print(f"Bot hali ham admin: chat_id={chat_id}")
+            print(f"✅ Bot hali ham admin: chat_id={chat_id}")
+
 
 
 async def restrict_user(group_chat_id, user_chat_id, bot):
