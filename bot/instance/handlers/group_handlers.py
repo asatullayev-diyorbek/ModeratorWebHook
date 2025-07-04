@@ -9,6 +9,40 @@ from bot.models import TgUser, Group, GroupMember, GroupAdmin, GroupMemberInvite
     OldMessage
 from bot.instance.handlers.keyboards import add_group_inline_markup, invite_channel_inline_markup
 
+async def handle_channel_forward_check(message: Message, bot: Bot):
+    chat = message.chat
+
+    if message.left_chat_member or message.new_chat_members:
+        await delete_message(message, bot)
+        return True
+
+    # 1. 📥 Kanal xabarini avtomatik forward qilinsa — log yozish
+    if message.is_automatic_forward:
+        return True
+
+
+    if message.sender_chat and message.chat:
+        same_sender = (
+                message.sender_chat.id == message.chat.id and
+                message.sender_chat.type == message.chat.type and
+                message.sender_chat.title == message.chat.title
+        )
+        if same_sender:
+            return True
+
+    # 2. ❌ Kanal nomidan yozilgan xabar — o‘chirish va ogohlantirish
+    if message.sender_chat and message.sender_chat.type == "channel":
+        # Ogohlantirish yuborish
+        r_msg = await message.answer(
+            "❌ <b>Kanal</b> nomidan yozish mumkin emas!",
+            parse_mode="HTML",
+            reply_markup=add_group_inline_markup
+        )
+
+        # Ogohlantirishni keyinroq o'chirish (OldMessage uchun yozilgan bo'lishi mumkin)
+        await OldMessage.add(r_msg.chat.id, r_msg.message_id)
+        return True
+    return False
 
 async def get_group_admins_from_telegram(group, bot: Bot):
     try:
@@ -75,6 +109,14 @@ async def get_group_member(chat_id, tg_user_id):
 
 async def all_message(message: Message, bot: Bot):
     try:
+        if await handle_channel_forward_check(message, bot):
+            return
+
+        if message.entities:
+            for entity in message.entities:
+                if entity.type == "bot_command":
+                    return
+
         if message.left_chat_member or message.new_chat_members:
             await delete_message(message, bot)
             return
@@ -195,6 +237,14 @@ async def all_message(message: Message, bot: Bot):
 
 async def edited_message(message: Message, bot: Bot):
     try:
+        if await handle_channel_forward_check(message, bot):
+            return
+
+        if message.entities:
+            for entity in message.entities:
+                if entity.type == "bot_command":
+                    return
+
         chat_id = message.chat.id
         from_user = message.from_user
         is_private = False
@@ -567,7 +617,6 @@ _
 
 
 # Kerakli funksiyalar
-
 async def delete_message(message: Message, bot: Bot):
     """
     Xabarni o'chirish funksiyasi. Xatolik bo'lsa, faqat log chiqaradi,

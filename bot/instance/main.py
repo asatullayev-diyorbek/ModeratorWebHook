@@ -11,6 +11,8 @@ from aiogram.filters import (
     CREATOR,
 )
 
+from bot.instance.handlers.command_handler import handle_seni, handle_top_invites, handle_ball_command, \
+    handle_nol_command, handle_del_command
 from bot.instance.handlers.group_handlers import (
     handle_start,
     handle_help,
@@ -31,6 +33,12 @@ webhook_dp.message.register(handle_help, Command('help')) # /help
 webhook_dp.message.register(handle_guruh, Command('guruh'))
 webhook_dp.message.register(handle_kanal, Command('kanal'))
 webhook_dp.message.register(handle_meni, Command('meni'))
+webhook_dp.message.register(handle_seni, Command('sizni'))
+webhook_dp.message.register(handle_top_invites, Command('top'))
+webhook_dp.message.register(handle_ball_command, Command('bal'))
+webhook_dp.message.register(handle_nol_command, Command('nol'))
+webhook_dp.message.register(handle_del_command, Command('del'))
+
 webhook_dp.message.register(all_message)
 
 webhook_dp.edited_message.register(edited_message)

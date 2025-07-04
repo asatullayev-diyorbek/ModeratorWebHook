@@ -163,6 +163,16 @@ class GroupMember(models.Model):
             print(f"Xatolik update_count da: {str(e)}")
             return None
 
+    @classmethod
+    @sync_to_async
+    def get_top_inviter_list(cls, group: Group, limit: int = 10):
+        return list(
+            cls.objects
+            .filter(group_chat=group)
+            .select_related("user_chat")
+            .order_by("-invite_count")[:limit]
+        )
+
 
 class GroupMemberInvitedHistory(models.Model):
     id = models.BigAutoField(primary_key=True)  # Avtomatik ID

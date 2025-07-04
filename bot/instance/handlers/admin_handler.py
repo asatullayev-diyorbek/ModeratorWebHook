@@ -82,6 +82,13 @@ async def handle_guruh(message: Message, bot: Bot):
     # Xabarni o'chirishga
     await delete_message(message, bot)
 
+    same_sender = False
+    if message.sender_chat and message.chat:
+        same_sender = (
+                message.sender_chat.id == message.chat.id and
+                message.sender_chat.type == message.chat.type
+        )
+
     # Agar xabar shaxsiy suhbatdan kelsa
     if message.chat.type == "private":
         await message.answer(
@@ -124,7 +131,7 @@ async def handle_guruh(message: Message, bot: Bot):
         await OldMessage.add(msg.chat.id, msg.message_id)
         return
 
-    if not await GroupAdmin.check_admin(chat_id, from_user.id):
+    if not await GroupAdmin.check_admin(chat_id, from_user.id) and not same_sender:
         print(f"Chat: {chat_id}   User: {from_user.id}")
         msg = await message.answer(
             text=(
@@ -220,6 +227,13 @@ async def handle_guruh(message: Message, bot: Bot):
 async def handle_kanal(message: Message, bot: Bot):
     await delete_message(message, bot)
 
+    same_sender = False
+    if message.sender_chat and message.chat:
+        same_sender = (
+                message.sender_chat.id == message.chat.id and
+                message.sender_chat.type == message.chat.type
+        )
+
     if message.chat.type == "private":
         await message.answer(
             text=(
@@ -263,7 +277,7 @@ async def handle_kanal(message: Message, bot: Bot):
         
         return
 
-    if not await GroupAdmin.check_admin(chat_id, from_user.id):
+    if not await GroupAdmin.check_admin(chat_id, from_user.id) and not same_sender:
         msg = await message.answer(
             text=(
                 f"🚫 [{message.from_user.first_name}](tg://user?id={message.from_user.id}), "
