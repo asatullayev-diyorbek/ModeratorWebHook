@@ -9,9 +9,9 @@ load_dotenv(dotenv_path, override=True)
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['universal.asatullayev.uz', 'www.universal.asatullayev.uz']
 
 # BOT configuration
 BOT_HOST = os.getenv('BOT_HOST')
